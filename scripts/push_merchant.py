@@ -50,7 +50,24 @@ def format_message(data: dict) -> str:
             f"- 下次刷新: {data.get('nextRefreshBeijing', '未知')}"
         )
 
-    items = data.get("items", [])
+    # 过滤掉不需要的商品
+    EXCLUDE_NAMES = {"残缺魔镜", "适格钥匙", "能力钥匙", "魔力果"}
+    EXCLUDE_KEYWORDS = {"粉尘"}
+
+    def should_show(item):
+        name = item.get("name", "")
+        category = item.get("category", "")
+        if name in EXCLUDE_NAMES:
+            return False
+        if any(kw in name or kw in category for kw in EXCLUDE_KEYWORDS):
+            return False
+        return True
+
+    items = [i for i in data.get("items", []) if should_show(i)]
+
+    if not items:
+        return "## 🏪 洛克王国·远行商人\n\n> 当前轮次无值得关注的商品"
+
     next_refresh = data.get("nextRefreshBeijing", "未知")
     position = data.get("merchantPosition", "")
 
