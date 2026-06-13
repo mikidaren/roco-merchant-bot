@@ -1,0 +1,32 @@
+name: 洛克王国·远行商人推送
+
+on:
+  # 定时触发：北京时间 8/12/16/20 点 (UTC 0/4/8/12)
+  schedule:
+    - cron: '0 0 * * *'   # 北京时间 08:00
+    - cron: '0 4 * * *'   # 北京时间 12:00
+    - cron: '0 8 * * *'   # 北京时间 16:00
+    - cron: '0 12 * * *'  # 北京时间 20:00
+  # 允许手动触发（测试用）
+  workflow_dispatch:
+
+jobs:
+  push-merchant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run merchant bot
+        env:
+          PUSH_METHOD: serverchan
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+        run: python3 scripts/push_merchant.py
