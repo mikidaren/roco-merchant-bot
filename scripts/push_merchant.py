@@ -15,11 +15,14 @@ BEIJING_TZ = timezone(timedelta(hours=8))
 API_URL = "https://rocokingdomworld.org/api/merchant/live"
 
 ROUND_NAMES = {
-    1: "🌅 早班 (08:00-12:00)",
-    2: "☀️ 午班 (12:00-16:00)",
-    3: "🌇 晚班 (16:00-20:00)",
-    4: "🌙 夜班 (20:00-00:00)",
+    1: "🌅 早班 08-12",
+    2: "☀️ 午班 12-16",
+    3: "🌇 晚班 16-20",
+    4: "🌙 夜班 20-00",
 }
+
+EXCLUDE_NAMES = {"残缺魔镜", "适格钥匙", "能力钥匙", "魔力果"}
+EXCLUDE_KEYWORDS = {"粉尘"}
 
 
 def fetch_merchant():
@@ -28,127 +31,65 @@ def fetch_merchant():
     return resp.json()
 
 
-def format_title(data: dict) -> str:
-    """Server酱 标题（显示在微信通知栏）"""
-    current_round = data.get("round", "?")
-    round_label = ROUND_NAMES.get(current_round, f"第{current_round}轮")
-    item_count = len(data.get("items", []))
-    return f"🏪 远行商人 {round_label} | {item_count}件商品"
+def should_show(item):
+    name = item.get("name", "")
+    category = item.get("category", "")
+    if name in EXCLUDE_NAMES:
+        return False
+    if any(kw in name or kw in category for kw in EXCLUDE_KEYWORDS):
+        return False
+    return True
 
 
-def format_message(data: dict) -> str:
-    """Server酱 正文（Markdown 格式）"""
+def format_message(data: dict) -> tuple:
     now = datetime.now(BEIJING_TZ)
     current_round = data.get("round", "?")
     round_label = ROUND_NAMES.get(current_round, f"第{current_round}轮")
-    status = data.get("status", "unknown")
 
-    if status != "open":
-        return (
-            f"## ❌ 商人当前未营业\n\n"
-            f"- 时间: {now.strftime('%Y-%m-%d %H:%M')}\n"
-            f"- 下次刷新: {data.get('nextRefreshBeijing', '未知')}"
-        )
-
-    # 过滤掉不需要的商品
-    EXCLUDE_NAMES = {"残缺魔镜", "适格钥匙", "能力钥匙", "魔力果"}
-    EXCLUDE_KEYWORDS = {"粉尘"}
-
-    def should_show(item):
-        name = item.get("name", "")
-        category = item.get("category", "")
-        if name in EXCLUDE_NAMES:
-            return False
-        if any(kw in name or kw in category for kw in EXCLUDE_KEYWORDS):
-            return False
-        return True
+    if data.get("status") != "open":
+        return "🏪 远行商人", "❌ 未营业"
 
     items = [i for i in data.get("items", []) if should_show(i)]
 
     if not items:
-        return "## 🏪 洛克王国·远行商人\n\n> 当前轮次无值得关注的商品"
+        return f"🏪 远行商人 | {round_label}", "本轮无关注商品"
 
-    next_refresh = data.get("nextRefreshBeijing", "未知")
-    position = data.get("merchantPosition", "")
-
-    lines = [
-        f"## 🏪 洛克王国·远行商人",
-        f"",
-        f"- 时间: {now.strftime('%Y-%m-%d %H:%M')}",
-        f"- 时段: {round_label}",
-    ]
-    if position:
-        lines.append(f"- 位置: {position}")
-    lines.append(f"- 下次刷新: {next_refresh}")
-    lines.append("")
-    lines.append("### 📦 当前在售商品")
-    lines.append("")
-
+    lines = [f"{round_label}  {now.strftime('%m-%d %H:%M')}"]
     for item in items:
-        name = item.get("name", "未知")
+        name = item.get("name", "?")
         price = item.get("priceRaw", item.get("price", "?"))
         limit = item.get("limit", "?")
-        category = item.get("category", "")
-        price_num = int(item.get("price", "0"))
-        prefix = "⭐" if price_num >= 100000 else "•"
+        lines.append(f"• {name}  {price}贝  限{limit}")
 
-        line = f"{prefix} **{name}** — 💰{price}贝 | 限{limit}个"
-        if category:
-            line += f" `{category}`"
-        lines.append(line)
-
-    lines.append("")
-    lines.append("---")
-    lines.append("> 每4小时刷新一轮，8/12/16/20点后查看")
-    return "\n".join(lines)
+    return "🏪 远行商人", "\n".join(lines)
 
 
 def push_serverchan(send_key: str, title: str, content: str):
-    """通过 Server酱 推送到微信"""
     url = f"https://sctapi.ftqq.com/{send_key}.send"
-    payload = {
-        "title": title,
-        "desp": content,
-    }
     try:
-        resp = requests.post(url, data=payload, timeout=15)
+        resp = requests.post(url, data={"title": title, "desp": content}, timeout=15)
         resp.raise_for_status()
         result = resp.json()
         if result.get("code") == 0:
-            print(f"✅ Server酱推送成功")
+            print("✅ 推送成功")
         else:
-            print(f"⚠️ Server酱返回: {result}", file=sys.stderr)
-        return result
+            print(f"⚠️ 返回: {result}", file=sys.stderr)
     except Exception as e:
-        print(f"❌ Server酱推送失败: {e}", file=sys.stderr)
-        return None
+        print(f"❌ 推送失败: {e}", file=sys.stderr)
 
 
 def main():
-    push_method = os.environ.get("PUSH_METHOD", "serverchan")
-    serverchan_key = os.environ.get("SERVERCHAN_KEY", "")
-
-    print("📡 获取远行商人数据...")
-    data = fetch_merchant()
-    title = format_title(data)
-    content = format_message(data)
-
-    print(f"✅ 数据获取成功，第{data.get('round')}轮，共{len(data.get('items', []))}件商品")
-    print()
-    print(content)
-    print()
-
-    if push_method == "serverchan":
-        if not serverchan_key:
-            print("❌ SERVERCHAN_KEY 未配置", file=sys.stderr)
-            sys.exit(1)
-        print("📤 推送到微信...")
-        push_serverchan(serverchan_key, title, content)
-    else:
-        print(f"⚠️ 未知推送方式: {push_method}", file=sys.stderr)
+    key = os.environ.get("SERVERCHAN_KEY", "")
+    if not key:
+        print("❌ SERVERCHAN_KEY 未配置", file=sys.stderr)
         sys.exit(1)
 
-    print("✅ 完成")
+    data = fetch_merchant()
+    title, content = format_message(data)
+    print(f"标题: {title}")
+    print(content)
+    print()
+    push_serverchan(key, title, content)
 
 
 if __name__ == "__main__":
