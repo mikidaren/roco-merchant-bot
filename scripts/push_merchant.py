@@ -47,21 +47,23 @@ def format_message(data: dict) -> tuple:
     round_label = ROUND_NAMES.get(current_round, f"第{current_round}轮")
 
     if data.get("status") != "open":
-        return "🏪 远行商人", "❌ 未营业"
+        return f"❌ 未营业 {now.strftime('%m-%d %H:%M')}", ""
 
     items = [i for i in data.get("items", []) if should_show(i)]
 
-    if not items:
-        return f"🏪 远行商人 | {round_label}", "本轮无关注商品"
+    title = f"{round_label}  {now.strftime('%m-%d %H:%M')}"
 
-    lines = [f"{round_label}  {now.strftime('%m-%d %H:%M')}"]
+    if not items:
+        return title, "🏪 本轮无关注商品"
+
+    lines = ["🏪 远行商人"]
     for item in items:
         name = item.get("name", "?")
         price = item.get("priceRaw", item.get("price", "?"))
         limit = item.get("limit", "?")
         lines.append(f"• {name}  {price}贝  限{limit}")
 
-    return "🏪 远行商人", "\n".join(lines)
+    return title, "\n".join(lines)
 
 
 def push_serverchan(send_key: str, title: str, content: str):
