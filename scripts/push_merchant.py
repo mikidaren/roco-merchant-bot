@@ -23,6 +23,7 @@ ROUND_NAMES = {
 
 EXCLUDE_NAMES = {"残缺魔镜", "适格钥匙", "能力钥匙", "魔力果"}
 EXCLUDE_KEYWORDS = {"粉尘"}
+HIGHLIGHT_KEYWORDS = {"炫彩", "棱镜", "药剂", "秘药"}
 
 
 def fetch_merchant():
@@ -54,14 +55,18 @@ def format_message(data: dict) -> tuple:
     title = f"{round_label}  {now.strftime('%m-%d %H:%M')}"
 
     if not items:
-        return title, "🏪 本轮无关注商品"
+        return title, "<font size=5>🏪 远行商人</font>\n<font size=4>本轮无关注商品</font>"
 
-    lines = ["🏪 远行商人"]
+    lines = ["<font size=5>🏪 远行商人</font>"]
     for item in items:
         name = item.get("name", "?")
         price = item.get("priceRaw", item.get("price", "?"))
         limit = item.get("limit", "?")
-        lines.append(f"• {name}  {price}贝  限{limit}")
+        is_key = any(kw in name for kw in HIGHLIGHT_KEYWORDS)
+        if is_key:
+            lines.append(f"<font size=4>• <b><font color=red>🔥{name}</font></b>  <font color=orange>{price}贝</font>  限{limit}</font>")
+        else:
+            lines.append(f"<font size=4>• {name}  {price}贝  限{limit}</font>")
 
     return title, "\n".join(lines)
 
