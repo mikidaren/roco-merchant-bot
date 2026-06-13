@@ -55,18 +55,18 @@ def format_message(data: dict) -> tuple:
     title = f"{round_label}  {now.strftime('%m-%d %H:%M')}"
 
     if not items:
-        return title, "<font size=5>🏪 远行商人</font>\n<font size=4>本轮无关注商品</font>"
+        return title, "# 🏪 远行商人\n\n本轮无关注商品"
 
-    lines = ["<font size=5>🏪 远行商人</font>"]
+    lines = ["# 🏪 远行商人"]
     for item in items:
         name = item.get("name", "?")
         price = item.get("priceRaw", item.get("price", "?"))
         limit = item.get("limit", "?")
         is_key = any(kw in name for kw in HIGHLIGHT_KEYWORDS)
         if is_key:
-            lines.append(f"<font size=4>• <b><font color=red>🔥{name}</font></b>  <font color=orange>{price}贝</font>  限{limit}</font>")
+            lines.append(f"• 🔥 **{name}**  {price}贝  限{limit}")
         else:
-            lines.append(f"<font size=4>• {name}  {price}贝  限{limit}</font>")
+            lines.append(f"• {name}  {price}贝  限{limit}")
 
     return title, "\n".join(lines)
 
